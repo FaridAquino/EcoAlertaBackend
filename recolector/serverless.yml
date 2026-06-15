@@ -9,8 +9,6 @@ provider:
   stage: ${opt:stage, 'dev'}
   memorySize: 128
   timeout: 10
-  httpApi:
-    cors: true
   environment:
     RECOLECTOR_TABLE: recolectorEcoAlerta
     RUTA_TABLE: rutaEcoAlerta
@@ -31,27 +29,31 @@ functions:
   register:
     handler: handler.register
     events:
-      - httpApi:
+      - http:
           path: /recolector/register
           method: post
+          cors: true
   login:
     handler: handler.login
     events:
-      - httpApi:
+      - http:
           path: /recolector/login
           method: post
+          cors: true
   registrarRuta:
     handler: handler.registrarRuta
     events:
-      - httpApi:
+      - http:
           path: /recolector/rutas
           method: post
+          cors: true
   iniciarRuta:
     handler: handler.iniciarRuta
     events:
-      - httpApi:
+      - http:
           path: /recolector/iniciar-ruta
           method: post
+          cors: true
 
 resources:
   Resources:

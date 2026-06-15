@@ -9,8 +9,6 @@ provider:
   stage: ${opt:stage, 'dev'}
   memorySize: 128
   timeout: 10
-  httpApi:
-    cors: true
   environment:
     USUARIOS_TABLE: usuariosEcoAlerta
   # IAM de minimo privilegio: solo la tabla usuariosEcoAlerta (sin Resource "*")
@@ -28,15 +26,17 @@ functions:
   register:
     handler: handler.register
     events:
-      - httpApi:
+      - http:
           path: /usuarios/register
           method: post
+          cors: true
   login:
     handler: handler.login
     events:
-      - httpApi:
+      - http:
           path: /usuarios/login
           method: post
+          cors: true
 
 resources:
   Resources:
