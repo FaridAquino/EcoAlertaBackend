@@ -48,7 +48,7 @@ functions:
     events:
       - websocket:
           route: enviarUbicacion
-  enviarAle rta:
+  enviarAlerta:
     handler: handler.enviarAlerta
     events:
       - websocket:
