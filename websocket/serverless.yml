@@ -1,18 +1,14 @@
 service: ecoalerta-websocket
-
-frameworkVersion: '3'
-
 useDotenv: true
 
 provider:
   name: aws
   runtime: python3.12
   region: us-east-1
-  stage: ${opt:stage, 'dev'}
+  stage: dev
   memorySize: 128
   timeout: 15
-  websocketsApiName: ecoalerta-ws
-  websocketsApiRouteSelectionExpression: $request.body.action
+
   environment:
     CONEXIONES_TABLE: conexionesEcoAlerta
     ROUTE_INDEX: route_id-index
@@ -52,7 +48,7 @@ functions:
     events:
       - websocket:
           route: enviarUbicacion
-  enviarAlerta:
+  enviarAle rta:
     handler: handler.enviarAlerta
     events:
       - websocket:
