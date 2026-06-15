@@ -1,7 +1,5 @@
 service: ecoalerta-recolector
 
-frameworkVersion: '3'
-
 provider:
   name: aws
   runtime: python3.12
