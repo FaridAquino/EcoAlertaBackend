@@ -48,6 +48,7 @@ API REST (eventos `http` con CORS).
 | `register`      | `POST /recolector/register`    | Registra recolector: correo, contraseña hasheada y rutas.                                |
 | `login`         | `POST /recolector/login`       | Valida credenciales y devuelve correo, rutas y `ruta_activa`.                            |
 | `registrarRuta` | `POST /recolector/rutas`       | Crea/actualiza una ruta en `rutaEcoAlerta` (route_id, start, end, nodes, fechas).        |
+| `obtenerRutas`  | `GET /recolector/rutas`        | Devuelve todas las rutas disponibles (`{ total, rutas: [...] }`).                         |
 | `iniciarRuta`   | `POST /recolector/iniciar-ruta`| Valida que hoy esté dentro de `fechas` de la ruta y marca `ruta_activa` del recolector.  |
 
 ### Tabla DynamoDB: `recolectorEcoAlerta`
@@ -117,6 +118,155 @@ API WebSocket (API Gateway WebSocket). `routeSelectionExpression: $request.body.
 
 ---
 
+## Ejemplos de prueba (JSON)
+
+> Reemplaza `https://API_ID.execute-api.us-east-1.amazonaws.com/dev` por la URL que imprime
+> `serverless deploy` de cada servicio. Para WebSocket, usa la URL `wss://...`.
+
+### usuarios
+
+**POST /usuarios/register**
+```json
+{
+  "correo": "ana@correo.com",
+  "password": "MiClave123",
+  "latitud": -11.419556,
+  "longitud": -75.697665,
+  "rutas": ["ruta_marini"]
+}
+```
+
+**POST /usuarios/login**
+```json
+{
+  "correo": "ana@correo.com",
+  "password": "MiClave123"
+}
+```
+
+```bash
+curl -X POST https://API_ID.execute-api.us-east-1.amazonaws.com/dev/usuarios/login \
+  -H "Content-Type: application/json" \
+  -d '{"correo":"ana@correo.com","password":"MiClave123"}'
+```
+
+### recolector
+
+**POST /recolector/register**
+```json
+{
+  "correo": "carlos@correo.com",
+  "password": "Recolector2026",
+  "rutas": ["ruta_marini", "ruta_san_ramon"]
+}
+```
+
+**POST /recolector/login**
+```json
+{
+  "correo": "carlos@correo.com",
+  "password": "Recolector2026"
+}
+```
+
+**POST /recolector/rutas** (registrarRuta)
+```json
+{
+  "route_id": "ruta_marini",
+  "start": "punto_1",
+  "end": "punto_4",
+  "nodes": [
+    { "id": "A", "label": "1erPunto", "lat": -11.419556, "lng": -75.697665 },
+    { "id": "B", "label": "2doPunto", "lat": -11.41894,  "lng": -75.697676 },
+    { "id": "C", "label": "3erPunto", "lat": -11.418789, "lng": -75.699746 },
+    { "id": "D", "label": "4toPunto", "lat": -11.419409, "lng": -75.699832 }
+  ],
+  "fechas": ["L", "M", "D"]
+}
+```
+
+Segundo ejemplo (`ruta_san_ramon`):
+```json
+{
+  "route_id": "ruta_san_ramon",
+  "start": "punto_1",
+  "end": "punto_4",
+  "nodes": [
+    { "id": "A", "label": "1erPunto", "lat": -11.411656, "lng": -75.682757 },
+    { "id": "B", "label": "2doPunto", "lat": -11.410429, "lng": -75.682623 },
+    { "id": "C", "label": "3erPunto", "lat": -11.410445, "lng": -75.684176 },
+    { "id": "D", "label": "4toPunto", "lat": -11.408473, "lng": -75.684205 }
+  ],
+  "fechas": ["M", "MM", "S"]
+}
+```
+
+**GET /recolector/rutas** (obtenerRutas) — sin body, devuelve todas las rutas:
+```bash
+curl https://API_ID.execute-api.us-east-1.amazonaws.com/dev/recolector/rutas
+```
+Respuesta:
+```json
+{
+  "total": 2,
+  "rutas": [
+    { "route_id": "ruta_marini", "start": "punto_1", "end": "punto_4", "nodes": [ ... ], "fechas": ["L","M","D"] },
+    { "route_id": "ruta_san_ramon", "start": "punto_1", "end": "punto_4", "nodes": [ ... ], "fechas": ["M","MM","S"] }
+  ]
+}
+```
+
+**POST /recolector/iniciar-ruta** (iniciarRuta)
+```json
+{
+  "correo": "carlos@correo.com",
+  "route_id": "ruta_marini"
+}
+```
+> Solo inicia si **hoy** (hora de Perú, UTC-5) está en `fechas` de esa ruta; si no, responde 400
+> con `dia_actual` y `dias_validos`.
+
+### websocket
+
+La conexión se hace contra la URL `wss://...` pasando los datos como **query params**
+(no body). Puedes probar con `wscat`:
+
+```bash
+# Conectar como recolector
+wscat -c "wss://WS_ID.execute-api.us-east-1.amazonaws.com/dev?user_id=carlos&rol=recolector&route_id=ruta_marini&lat=-11.4195&lng=-75.6976"
+
+# Conectar como usuario (en otra terminal)
+wscat -c "wss://WS_ID.execute-api.us-east-1.amazonaws.com/dev?user_id=ana&rol=usuario&route_id=ruta_marini&lat=-11.4188&lng=-75.6996"
+```
+
+Una vez conectado, los mensajes se envían como JSON con el campo `action`:
+
+**enviarUbicacion** (lo manda el recolector; difunde su ubicación y dispara alerta a ≤3 min):
+```json
+{
+  "action": "enviarUbicacion",
+  "route_id": "ruta_marini",
+  "ubicacion": { "lat": -11.4195, "lng": -75.6976 }
+}
+```
+
+**enviarAlerta** (difusión manual de alerta a toda la ruta):
+```json
+{
+  "action": "enviarAlerta",
+  "route_id": "ruta_marini",
+  "mensaje": "El recolector va llegando"
+}
+```
+
+Mensajes que **recibe** el frontend del usuario:
+```json
+{ "action": "enviarUbicacion", "route_id": "ruta_marini", "ubicacion": { "lat": -11.4195, "lng": -75.6976 } }
+{ "action": "enviarAlerta", "route_id": "ruta_marini", "mensaje": "El recolector esta a menos de 3 minutos" }
+```
+
+---
+
 ## Resumen: qué Lambda usa qué tabla
 
 | Servicio   | Lambda            | Tabla(s)                          | Operaciones IAM                         |
@@ -124,6 +274,7 @@ API WebSocket (API Gateway WebSocket). `routeSelectionExpression: $request.body.
 | usuarios   | register, login   | `usuariosEcoAlerta`               | `PutItem`, `GetItem`                     |
 | recolector | register, login   | `recolectorEcoAlerta`             | `PutItem`, `GetItem`, `UpdateItem`       |
 | recolector | registrarRuta     | `rutaEcoAlerta`                   | `PutItem`                                |
+| recolector | obtenerRutas      | `rutaEcoAlerta`                   | `Scan`                                   |
 | recolector | iniciarRuta       | `rutaEcoAlerta`, `recolectorEcoAlerta` | `GetItem`, `UpdateItem`             |
 | websocket  | connect/disconnect| `conexionesEcoAlerta`             | `PutItem`, `DeleteItem`                  |
 | websocket  | enviarUbicacion / enviarAlerta | `conexionesEcoAlerta` (+ GSI) | `Query` (GSI), `DeleteItem`, `execute-api:ManageConnections` |

@@ -19,6 +19,7 @@ provider:
             - dynamodb:PutItem
             - dynamodb:GetItem
             - dynamodb:UpdateItem
+            - dynamodb:Scan
           Resource:
             - !GetAtt RecolectorTable.Arn
             - !GetAtt RutaTable.Arn
@@ -44,6 +45,13 @@ functions:
       - http:
           path: /recolector/rutas
           method: post
+          cors: true
+  obtenerRutas:
+    handler: handler.obtenerRutas
+    events:
+      - http:
+          path: /recolector/rutas
+          method: get
           cors: true
   iniciarRuta:
     handler: handler.iniciarRuta

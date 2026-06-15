@@ -149,6 +149,22 @@ def registrarRuta(event, context):
 
 
 # ---------------------------------------------------------------------------
+# obtenerRutas: devuelve todas las rutas disponibles (GET)
+# ---------------------------------------------------------------------------
+def obtenerRutas(event, context):
+    rutas = []
+    kwargs = {}
+    while True:
+        resp = ruta_table.scan(**kwargs)
+        rutas.extend(resp.get("Items", []))
+        if "LastEvaluatedKey" not in resp:
+            break
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+
+    return _response(200, {"total": len(rutas), "rutas": rutas})
+
+
+# ---------------------------------------------------------------------------
 # iniciarRuta: valida que hoy este dentro de "fechas" y marca ruta_activa
 # ---------------------------------------------------------------------------
 def iniciarRuta(event, context):
