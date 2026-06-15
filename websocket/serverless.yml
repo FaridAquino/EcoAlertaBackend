@@ -1,0 +1,86 @@
+service: ecoalerta-websocket
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  memorySize: 128
+  timeout: 15
+  websocketsApiName: ecoalerta-ws
+  websocketsApiRouteSelectionExpression: $request.body.action
+  environment:
+    CONEXIONES_TABLE: conexionesEcoAlerta
+    ROUTE_INDEX: route_id-index
+    MAPBOX_TOKEN: ${env:MAPBOX_TOKEN, ''}
+  # IAM de minimo privilegio: la tabla, su GSI, y manejo de conexiones WS
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+          Resource:
+            - !GetAtt ConexionesTable.Arn
+            - !Sub '${ConexionesTable.Arn}/index/route_id-index'
+        - Effect: Allow
+          Action:
+            - execute-api:ManageConnections
+          Resource:
+            - !Sub 'arn:aws:execute-api:${aws:region}:${aws:accountId}:*/*/POST/@connections/*'
+
+functions:
+  connect:
+    handler: handler.connect
+    events:
+      - websocket:
+          route: $connect
+  disconnect:
+    handler: handler.disconnect
+    events:
+      - websocket:
+          route: $disconnect
+  enviarUbicacion:
+    handler: handler.enviarUbicacion
+    events:
+      - websocket:
+          route: enviarUbicacion
+  enviarAlerta:
+    handler: handler.enviarAlerta
+    events:
+      - websocket:
+          route: enviarAlerta
+
+resources:
+  Resources:
+    ConexionesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: conexionesEcoAlerta
+        BillingMode: PAY_PER_REQUEST   # on-demand -> menor costo
+        AttributeDefinitions:
+          - AttributeName: connection_id
+            AttributeType: S
+          - AttributeName: route_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: connection_id
+            KeyType: HASH
+        # GSI para consultar todas las conexiones de una ruta (route_id indexado).
+        # Proyeccion INCLUDE minima para abaratar costo de almacenamiento del indice.
+        GlobalSecondaryIndexes:
+          - IndexName: route_id-index
+            KeySchema:
+              - AttributeName: route_id
+                KeyType: HASH
+            Projection:
+              ProjectionType: INCLUDE
+              NonKeyAttributes:
+                - user_id
+                - rol
+                - ubicacion

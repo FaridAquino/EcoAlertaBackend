@@ -1,0 +1,53 @@
+service: ecoalerta-usuarios
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  memorySize: 128
+  timeout: 10
+  httpApi:
+    cors: true
+  environment:
+    USUARIOS_TABLE: usuariosEcoAlerta
+  # IAM de minimo privilegio: solo la tabla usuariosEcoAlerta (sin Resource "*")
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+          Resource:
+            - !GetAtt UsuariosTable.Arn
+
+functions:
+  register:
+    handler: handler.register
+    events:
+      - httpApi:
+          path: /usuarios/register
+          method: post
+  login:
+    handler: handler.login
+    events:
+      - httpApi:
+          path: /usuarios/login
+          method: post
+
+resources:
+  Resources:
+    UsuariosTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: usuariosEcoAlerta
+        BillingMode: PAY_PER_REQUEST   # on-demand: sin capacidad provisionada -> menor costo
+        AttributeDefinitions:
+          - AttributeName: correo
+            AttributeType: S
+        KeySchema:
+          - AttributeName: correo
+            KeyType: HASH

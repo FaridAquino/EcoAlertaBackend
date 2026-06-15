@@ -1,0 +1,80 @@
+service: ecoalerta-recolector
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  memorySize: 128
+  timeout: 10
+  httpApi:
+    cors: true
+  environment:
+    RECOLECTOR_TABLE: recolectorEcoAlerta
+    RUTA_TABLE: rutaEcoAlerta
+  # IAM de minimo privilegio: solo las dos tablas de este servicio (sin Resource "*")
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+          Resource:
+            - !GetAtt RecolectorTable.Arn
+            - !GetAtt RutaTable.Arn
+
+functions:
+  register:
+    handler: handler.register
+    events:
+      - httpApi:
+          path: /recolector/register
+          method: post
+  login:
+    handler: handler.login
+    events:
+      - httpApi:
+          path: /recolector/login
+          method: post
+  registrarRuta:
+    handler: handler.registrarRuta
+    events:
+      - httpApi:
+          path: /recolector/rutas
+          method: post
+  iniciarRuta:
+    handler: handler.iniciarRuta
+    events:
+      - httpApi:
+          path: /recolector/iniciar-ruta
+          method: post
+
+resources:
+  Resources:
+    RecolectorTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: recolectorEcoAlerta
+        BillingMode: PAY_PER_REQUEST   # on-demand -> menor costo
+        AttributeDefinitions:
+          - AttributeName: correo
+            AttributeType: S
+        KeySchema:
+          - AttributeName: correo
+            KeyType: HASH
+
+    RutaTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: rutaEcoAlerta
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: route_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: route_id
+            KeyType: HASH
