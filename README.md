@@ -22,7 +22,7 @@ API REST (eventos `http` con CORS).
 | Lambda     | Método / Ruta            | Descripción                                                                 |
 |------------|--------------------------|-----------------------------------------------------------------------------|
 | `register` | `POST /usuarios/register`| Registra usuario: correo, contraseña hasheada, ubicación y rutas escogidas. |
-| `login`    | `POST /usuarios/login`   | Valida credenciales y devuelve correo, ubicación y rutas (sin el hash).      |
+| `login`    | `POST /usuarios/login`   | Valida credenciales y devuelve correo, ubicación, `rutas` (IDs) y `rutas_detalle` (objetos completos). |
 
 ### Tabla DynamoDB: `usuariosEcoAlerta`
 
@@ -150,6 +150,30 @@ curl -X POST https://API_ID.execute-api.us-east-1.amazonaws.com/dev/usuarios/log
   -d '{"correo":"ana@correo.com","password":"MiClave123"}'
 ```
 
+Respuesta (el frontend usa `rutas_detalle` para Calendario, Rutas y Seguimiento):
+```json
+{
+  "mensaje": "login correcto",
+  "correo": "ana@correo.com",
+  "ubicacion": { "lat": -11.419556, "lng": -75.697665 },
+  "rutas": ["ruta_marini"],
+  "rutas_detalle": [
+    {
+      "route_id": "ruta_marini",
+      "start": "punto_1",
+      "end": "punto_4",
+      "nodes": [
+        { "id": "A", "label": "1erPunto", "lat": -11.419556, "lng": -75.697665 }
+      ],
+      "fechas": ["L", "M", "D"]
+    }
+  ]
+}
+```
+- **Calendario** → `rutas_detalle[].fechas`
+- **Rutas** → `rutas_detalle[].nodes` (`start`/`end`)
+- **Seguimiento** → `rutas_detalle[].route_id` (para conectar al WebSocket con ese `route_id`)
+
 ### recolector
 
 **POST /recolector/register**
@@ -271,7 +295,8 @@ Mensajes que **recibe** el frontend del usuario:
 
 | Servicio   | Lambda            | Tabla(s)                          | Operaciones IAM                         |
 |------------|-------------------|-----------------------------------|-----------------------------------------|
-| usuarios   | register, login   | `usuariosEcoAlerta`               | `PutItem`, `GetItem`                     |
+| usuarios   | register          | `usuariosEcoAlerta`               | `PutItem`                                |
+| usuarios   | login             | `usuariosEcoAlerta`, `rutaEcoAlerta` (solo lectura) | `GetItem`, `BatchGetItem`  |
 | recolector | register, login   | `recolectorEcoAlerta`             | `PutItem`, `GetItem`, `UpdateItem`       |
 | recolector | registrarRuta     | `rutaEcoAlerta`                   | `PutItem`                                |
 | recolector | obtenerRutas      | `rutaEcoAlerta`                   | `Scan`                                   |

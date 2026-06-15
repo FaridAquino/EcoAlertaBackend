@@ -9,16 +9,25 @@ provider:
   timeout: 10
   environment:
     USUARIOS_TABLE: usuariosEcoAlerta
-  # IAM de minimo privilegio: solo la tabla usuariosEcoAlerta (sin Resource "*")
+    # Tabla de rutas (creada por el servicio recolector) para enriquecer el login.
+    RUTA_TABLE: rutaEcoAlerta
   iam:
     role:
       statements:
+        # Tabla propia: lectura/escritura del usuario.
         - Effect: Allow
           Action:
             - dynamodb:PutItem
             - dynamodb:GetItem
           Resource:
             - !GetAtt UsuariosTable.Arn
+        # Solo lectura de rutaEcoAlerta (otro stack) para devolver el detalle en el login.
+        - Effect: Allow
+          Action:
+            - dynamodb:BatchGetItem
+            - dynamodb:GetItem
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/rutaEcoAlerta
 
 functions:
   register:

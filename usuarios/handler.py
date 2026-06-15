@@ -15,6 +15,7 @@ from botocore.exceptions import ClientError
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(os.environ["USUARIOS_TABLE"])
+ruta_table = dynamodb.Table(os.environ["RUTA_TABLE"])
 
 PBKDF2_ITERATIONS = 100_000
 
@@ -117,12 +118,31 @@ def login(event, context):
     if not item or not verify_password(password, item.get("password_hash", "")):
         return _response(401, {"error": "credenciales invalidas"})
 
+    rutas_ids = item.get("rutas", [])
+
     return _response(
         200,
         {
             "mensaje": "login correcto",
             "correo": item["correo"],
             "ubicacion": item.get("ubicacion"),
-            "rutas": item.get("rutas", []),
+            "rutas": rutas_ids,                       # IDs escogidos por el usuario
+            "rutas_detalle": _detalle_rutas(rutas_ids),  # objetos completos (nodes, fechas, ...)
         },
     )
+
+
+def _detalle_rutas(route_ids):
+    """Lee rutaEcoAlerta y devuelve el detalle completo de las rutas escogidas.
+
+    Usa BatchGetItem (una sola llamada) para Calendario (fechas), Rutas (nodes)
+    y Seguimiento (route_id). Si una ruta ya no existe, simplemente se omite.
+    """
+    if not route_ids:
+        return []
+
+    keys = [{"route_id": rid} for rid in route_ids]
+    resp = dynamodb.batch_get_item(
+        RequestItems={ruta_table.name: {"Keys": keys}}
+    )
+    return resp.get("Responses", {}).get(ruta_table.name, [])
