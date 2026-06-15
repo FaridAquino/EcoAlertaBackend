@@ -8,7 +8,7 @@ import os
 import hashlib
 import hmac
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
 import boto3
@@ -23,6 +23,9 @@ PBKDF2_ITERATIONS = 100_000
 # Codigos de dia de la semana usados en el campo "fechas" de las rutas.
 # weekday(): 0=Lunes ... 6=Domingo
 DIA_CODIGO = {0: "L", 1: "M", 2: "MM", 3: "J", 4: "V", 5: "S", 6: "D"}
+
+# Zona horaria de Peru (UTC-5, sin horario de verano).
+PERU_TZ = timezone(timedelta(hours=-5))
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +163,9 @@ def iniciarRuta(event, context):
     if not ruta:
         return _response(404, {"error": "la ruta no existe"})
 
-    hoy = DIA_CODIGO[datetime.utcnow().weekday()]
+    # Dia actual segun la hora local de Peru (UTC-5)
+    ahora_peru = datetime.now(PERU_TZ)
+    hoy = DIA_CODIGO[ahora_peru.weekday()]
     fechas = ruta.get("fechas", [])
     if hoy not in fechas:
         return _response(
@@ -180,7 +185,7 @@ def iniciarRuta(event, context):
             ConditionExpression="attribute_exists(correo)",
             ExpressionAttributeValues={
                 ":r": route_id,
-                ":t": datetime.utcnow().isoformat() + "Z",
+                ":t": ahora_peru.isoformat(),  # ISO-8601 con offset -05:00 (Peru)
             },
         )
     except ClientError as exc:
