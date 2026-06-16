@@ -233,7 +233,11 @@ def _usuarios_a_3_min(rec_lat, rec_lng, destinos):
         (c["ubicacion"]["lng"], c["ubicacion"]["lat"]) for c in con_ubic
     ]
     coord_str = ";".join(f"{lng},{lat}" for lng, lat in coords)
-    destinations = ";".join(str(i) for i in range(1, len(coords)))
+    # Incluimos el indice 0 (el propio recolector) como primer destino para
+    # garantizar >= 2 elementos de matriz cuando solo hay 1 usuario (MapBox
+    # rechaza matrices de 1 solo elemento). Esa primera columna sera 0
+    # (recolector -> recolector) y la descartamos al leer las duraciones.
+    destinations = ";".join(str(i) for i in range(0, len(coords)))
 
     params = urllib.parse.urlencode(
         {
@@ -260,7 +264,10 @@ def _usuarios_a_3_min(rec_lat, rec_lng, destinos):
 
     print(f"MapBox Matrix response: {data}")
 
-    durations = (data.get("durations") or [[]])[0]  # fila del unico source
+    # Fila del unico source. La primera columna es recolector -> recolector (0),
+    # la descartamos para alinear las duraciones con la lista de usuarios.
+    fila = (data.get("durations") or [[]])[0]
+    durations = fila[1:]
     cercanos = []
     for c, dur in zip(con_ubic, durations):
         if dur is not None and dur <= ALERTA_SEGUNDOS:
