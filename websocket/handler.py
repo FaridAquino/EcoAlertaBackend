@@ -130,6 +130,8 @@ def enviarUbicacion(event, context):
         if c.get("rol") == "usuario" and c["connection_id"] != sender_id
     ]
 
+    print(f"enviarUbicacion: {len(destinos)} destinos, recolector en ({rec_lat}, {rec_lng})")
+
     # 1) Difundir la ubicacion del recolector a todos los usuarios de la ruta
     for c in destinos:
         _post(
@@ -139,7 +141,9 @@ def enviarUbicacion(event, context):
         )
 
     # 2) Detectar quienes estan a <= 3 min con MapBox Matrix y enviarles enviarAlerta
+    print("Detectando usuarios a <= 3 min con MapBox Matrix...")
     cercanos = _usuarios_a_3_min(rec_lat, rec_lng, destinos)
+    print(f"Usuarios cercanos: {len(cercanos)}")
     for c in cercanos:
         _post(
             client,
@@ -219,6 +223,8 @@ def _usuarios_a_3_min(rec_lat, rec_lng, destinos):
         if c.get("ubicacion", {}).get("lat") is not None
         and c.get("ubicacion", {}).get("lng") is not None
     ]
+
+    print(f"_usuarios_a_3_min: {len(con_ubic)} usuarios con ubicacion conocida")
     if not con_ubic:
         return []
 
@@ -242,12 +248,17 @@ def _usuarios_a_3_min(rec_lat, rec_lng, destinos):
         f"{coord_str}?{params}"
     )
 
+    print(f"MapBox Matrix request: {url}")
+
     try:
         with urllib.request.urlopen(url, timeout=8) as resp:
             data = json.loads(resp.read().decode())
     except Exception:
+        print("Error al llamar a MapBox Matrix")
         # Si MapBox falla, no bloqueamos el envio de ubicacion
         return []
+
+    print(f"MapBox Matrix response: {data}")
 
     durations = (data.get("durations") or [[]])[0]  # fila del unico source
     cercanos = []
