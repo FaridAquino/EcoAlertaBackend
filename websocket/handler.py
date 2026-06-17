@@ -105,6 +105,15 @@ def disconnect(event, context):
 
 
 # ---------------------------------------------------------------------------
+# ping: mantiene viva la conexion (keep-alive). El cliente debe enviarlo
+# periodicamente (p. ej. cada ~5 min) para evitar el idle timeout de 10 min
+# de API Gateway WebSocket.
+# ---------------------------------------------------------------------------
+def ping(event, context):
+    return _ok({"action": "pong"})
+
+
+# ---------------------------------------------------------------------------
 # enviarUbicacion
 # ---------------------------------------------------------------------------
 def enviarUbicacion(event, context):

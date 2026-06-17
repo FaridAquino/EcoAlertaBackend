@@ -43,6 +43,11 @@ functions:
     events:
       - websocket:
           route: $disconnect
+  ping:
+    handler: handler.ping
+    events:
+      - websocket:
+          route: ping
   enviarUbicacion:
     handler: handler.enviarUbicacion
     events:
