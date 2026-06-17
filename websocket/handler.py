@@ -110,6 +110,9 @@ def disconnect(event, context):
 # de API Gateway WebSocket.
 # ---------------------------------------------------------------------------
 def ping(event, context):
+    connection_id = event["requestContext"]["connectionId"]
+    client = _api_client(event)
+    _post(client, connection_id, {"action": "pong"})
     return _ok({"action": "pong"})
 
 
